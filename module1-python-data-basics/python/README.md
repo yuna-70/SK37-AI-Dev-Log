@@ -41,7 +41,7 @@
 
 ---
 
-## 📅 2026-09-07 | List (생성 / 인덱싱 / 슬라이싱)
+## 📅 2026-09-04 | List (생성 / 인덱싱 / 슬라이싱)
 > 코드: [`list_basics.py`](./list_basics.py), [`list_pracctive.py`](./list_pracctive.py)
 
 ### 개념
