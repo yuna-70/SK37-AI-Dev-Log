@@ -592,7 +592,113 @@
   문제를 겪음 → 언패킹으로 값을 나눠 받을 때, 변수 이름을 내장 함수명과 겹치지 않게 지어야 한다는 걸
   실제 버그를 통해 확인함
 ---
+## 📅 2026-09-14 | Streamlit 기초
+> 코드: [`streamlit/text.py`](./streamlit/text.py), [`streamlit/widgets.py`](./streamlit/widgets.py), [`streamlit/chart.py`](./streamlit/chart.py), [`streamlit/layout.py`](./streamlit/layout.py), [`streamlit/session.py`](./streamlit/session.py), [`streamlit/crud.py`](./streamlit/crud.py), [`streamlit/form.py`](./streamlit/form.py), [`.streamlit/config.toml`](../.streamlit/config.toml)
 
+### 개념
+
+**1. Streamlit이란**
+- 복잡한 웹 개발 언어(HTML, CSS, JavaScript)나 백엔드 서버 지식 없이, 순수 파이썬만으로 웹사이트를 만들어주는 프로그램
+- 파이썬 변수와 함수 몇 줄로 단 몇 분 만에 완성도 높은 대시보드 웹을 만들 수 있음
+
+**2. 사용 방법**
+1. 설치: `pip install streamlit` (터미널)
+2. 임포트: `import streamlit as st` (코드 상단)
+3. 함수 호출: `st.함수명()`
+4. 실행: `streamlit run 파일명.py` (터미널 → 웹 브라우저 실행)
+
+**3. 텍스트 출력**
+- `st.title()`: 가장 큰 메인 제목
+- `st.header()`: 대분류 주제 제목
+- `st.subheader()`: 중분류 세부 제목
+- `st.write()`: 파이썬 `print()`처럼 뭐든(문자, 숫자, 딕셔너리 등) 알아서 출력해주는 만능 함수
+- `st.caption()`: 화면 하단의 작은 주석/부연 설명
+- `st.divider()`: 구분선 출력
+
+**4. 사용자 입력 위젯**
+- 위젯(Widget): 사용자가 클릭·드래그·타이핑하며 화면과 상호작용하도록 돕는 UI 요소
+- 정적인 화면이 아니라, 사용자 입력에 따라 다르게 반응하는 '동적인 웹 서비스'를 만들기 위해 사용
+- 선택형 입력
+  - `st.button("버튼명")`: 클릭하면 True, 안 누르면 False 반환
+  - `st.checkbox("선택문구")`: 체크 여부(True/False)
+  - `st.radio("제목", 리스트)`: 동그라미 버튼 중 하나만 선택
+  - `st.selectbox("제목", 리스트)`: 드롭다운 메뉴로 하나만 선택
+  - `st.multiselect("제목", 리스트)`: 여러 개 동시 선택 (결과: list 반환)
+- 값 입력
+  - `st.text_input("제목")`: 문자열 직접 입력
+  - `st.number_input("제목")`: 숫자 입력 (정수/실수 반환)
+
+**5. 데이터 표출 & 차트**
+- 딕셔너리/리스트 데이터를 숫자 카드, 정돈된 표, 그래프로 변환해서 보여주는 기능
+- `st.metric`: 매출액·회원 수 같은 핵심 지표(KPI)와 이전 대비 변화량(Delta)을 강조해서 보여줌
+- `st.table`: `[{"이름": "김철수", "나이": 25}, ...]` 구조를 웹 표로 그려줌
+- `st.bar_chart`, `st.line_chart`: 외부 분석 도구 없이도 `{"1월": 100, "2월": 200}` 형태를 막대/선그래프로 바로 그려줌
+
+**6. 레이아웃 & 컨테이너**
+- 화면을 좌우로 나누거나, 메뉴판을 만들거나, 탭으로 분할하는 '화면 정리 정돈' 기능
+- `st.sidebar`: 화면 왼쪽에 메뉴/설정창 공간
+- `st.columns`: 화면을 가로로 원하는 비율만큼 분할 (반환값을 `col1, col2 = st.columns(2)`처럼 언패킹해서 각각 `with`로 사용)
+- `st.tabs`: 한 화면 안에서 탭을 눌러 다른 내용 전환 (반환값을 `tab1, tab2, tab3 = st.tabs([...])`처럼 언패킹)
+- `st.expander`: 긴 설명을 접어두었다가 클릭 시 펼침
+
+**7. 세션 상태(st.session_state)**
+- 웹 브라우저가 열려있는 동안 파이썬 변수 값을 기억·보존하는 메모리 역할의 도구
+- Streamlit은 버튼 하나만 눌러도 스크립트 전체를 처음부터 다시 실행하기 때문에, 일반 변수(`a = 10`)는 매번 초기화됨
+- 새로고침돼도 데이터(고객 목록, 카운트 등)가 유지되게 하려면 `st.session_state`에 저장해야 함
+- 사용법: 딕셔너리와 동일하게 사용. 단, 존재하지 않는 key를 불러오면 에러가 나므로 `if 'key' not in st.session_state:`로 존재 여부를 먼저 검사하는 게 필수 규칙
+
+**8. 데이터 CRUD**
+- Streamlit은 데이터 변화를 웹 화면에 실시간으로 동기화해주는 도구
+- Create(생성)&Read(조회): 입력창에 데이터 추가 시 즉시 감지해서 화면에 표시
+- Update(수정): 데이터 수정 시 화면 내용 자동 변경
+- Delete(삭제): 데이터 삭제 시 화면에서 실시간으로 사라짐
+- 구현 방식: 입력 위젯에서 받은 값을 dict로 묶어 세션 리스트에 `.append()` (Create) → 세션 리스트 출력 (Read)
+
+**9. 입력 폼 (st.form)**
+- `st.form`: 여러 입력 위젯을 하나로 묶어, [제출 버튼]을 누르는 순간에만 데이터가 전송되고 새로고침되도록 제어
+- `st.form_submit_button`: form 내부 모든 입력 데이터를 한 번에 전송하고 화면을 새로고침(Rerun)시키는 전용 제출 버튼
+- 목적: 입력창 하나 칠 때마다 화면이 새로고침되는 걸 방지 (입력창 5개면 5번 새로고침되며 버벅이는 현상을 막음)
+
+**10. 환경(색상, 폰트) 설정 — config.toml**
+- 웹 앱의 글꼴, 배경색, 강조 색상 등 전체 디자인 테마를 한곳에서 관리하는 설정 파일
+- 파이썬 코드를 안 건드리고 설정 파일 하나로 전체 디자인 일괄 적용 가능
+- 저장 위치: 프로젝트 최상단에 `.streamlit` 폴더 생성 → 그 안에 `config.toml` (경로: `프로젝트/.streamlit/config.toml`)
+- `[theme]` 섹션 주요 항목: `primaryColor`(강조색), `backgroundColor`(배경색), `secondaryBackgroundColor`(사이드바 등 보조 배경색), `textColor`(글자색), `font`(글꼴)
+
+### 왜 이렇게 코딩했는가
+- 텍스트 출력 실습에서 각 함수(`title`, `header`, `subheader`, `write`, `caption`) 사이마다 `st.divider()`를 넣은 이유
+  → 여러 텍스트 함수의 결과물이 화면에서 서로 붙어 보이지 않고, 각 함수가 어떤 크기·스타일로 출력되는지 구분선으로 명확히 비교하기 위함
+- 입력 위젯 실습에서 `st.button()`을 `if-else`로 감싸서 두 경우(눌렀을 때/안 눌렀을 때)를 모두 출력한 이유
+  → `st.button()`이 클릭 시 True, 평소엔 False를 반환한다는 걸 두 상태 다 직접 확인하기 위함
+- `text_input`, `number_input` 결과를 `if name:`, `if age:`로 감싸서 값이 있을 때만 문장을 출력한 이유
+  → 사용자가 아직 아무것도 입력하지 않은 초기 상태(빈 문자열/0)에서는 불필요한 문장이 뜨지 않도록 하기 위함
+- 레이아웃 실습에서 `st.columns(2)`로 화면을 나누고, 각 컬럼 안에 다시 `st.expander()`를 중첩한 이유
+  → 왼쪽/오른쪽 구역을 나눈 것만으로 끝내지 않고, 그 안에서도 원본 데이터와 그래프를 접어뒀다가 필요할 때만 펼쳐보게 해서 화면을 더 깔끔하게 구성하기 위함
+- `session.py`에서 `if "count" not in st.session_state:`로 먼저 존재 여부를 확인하고 나서 초기화한 이유
+  → session_state는 버튼을 누를 때마다 스크립트 전체가 처음부터 다시 실행되는데, 이 조건문 없이 매번 `st.session_state["count"] = 0`을 실행하면 버튼을 눌러 늘려놓은 값이 클릭할 때마다 다시 0으로 초기화돼버리기 때문
+- `crud.py`에서 고객 정보를 `{"name": new_name}`처럼 **딕셔너리**로 묶어서 리스트에 append한 이유
+  → 지금은 이름 하나만 저장하지만, 나중에 나이·연락처 등 다른 정보가 추가되어도 한 고객의 데이터를 딕셔너리 하나로 확장하기 쉽게 하기 위함
+- `form.py`에서 나이 입력을 `number_input`이 아니라 `text_input`으로 받고 `int()`로 직접 변환한 이유
+  → 문자를 입력했을 때 발생하는 `ValueError`를 `try-except`로 직접 처리해보기 위해, 애초에 숫자만 입력되게 강제하는 `number_input` 대신 검증이 필요한 `text_input`을 사용함
+
+### 막혔던 부분 / 이해 포인트
+- `st.radio`, `st.selectbox`, `st.multiselect`가 겉보기엔 비슷해 보였는데, 반환값의 형태가 다르다는 걸 확인함
+  (radio/selectbox는 선택한 값 하나, multiselect는 선택한 값들의 **리스트**를 반환)
+- `with st.sidebar:` 구문 안에 들여쓰기로 작성한 요소들은 메인 화면이 아니라 사이드바 안에 배치된다는 걸 확인함
+  → `with`이 "이 블록 안의 내용을 특정 위치(사이드바, 컬럼 등)에 부착한다"는 의미로 쓰인다는 걸 이해함
+- `st.columns(2)`로 나눈 `col1`, `col2` 각각에 `with col1:`, `with col2:`를 써서, 같은 화면 안에서도 왼쪽/오른쪽에 서로 다른 내용을 배치할 수 있다는 걸 확인함
+- `st.tabs([...])`도 `st.columns()`처럼 반환값을 `tab1, tab2, tab3`로 언패킹해서 받아야 각 탭의 내용을 따로 구현할 수 있다는 걸 확인함
+- `crud.py` 작성 중 `AttributeError: 'int' object has no attribute 'append'` 에러를 겪음
+  → `session_state`는 코드를 수정해도 이전에 저장된 값을 그대로 유지한다는 걸 알게 됨. 예전에 같은 key(`customer_list`)를 다른 용도로 썼던 값이 남아있어서 생긴 문제였고, 앱을 완전히 재시작하니 해결됨
+  → `if key not in st.session_state:` 조건이 "처음 한 번만 초기화"하는 안전장치라는 걸 에러를 통해 체감함
+- f-string 안에서 딕셔너리 접근에 바깥과 같은 종류의 따옴표(`"`)를 중첩해서 썼던 걸(`f"...{st.session_state["count"]}"`)
+  안쪽만 작은따옴표(`'`)로 바꿔 수정함 → 같은 따옴표를 중첩하면 파이썬 3.12 미만에서는 `SyntaxError`가 날 수 있어서,
+  바깥/안쪽 따옴표 종류를 다르게 써야 여러 버전에서 안전하게 동작한다는 걸 다시 확인함
+- `form.py`에서 `st.form` 안의 위젯들은 `제출하기` 버튼을 누르기 전까지는 값이 바로 반영되지 않고, 제출 버튼을 눌러야 한 번에 처리된다는 걸 확인함
+  → 일반 위젯(`st.button` 등)과 달리, form 안의 위젯은 개별 입력마다 화면이 새로고침되지 않는다는 차이를 이해함
+- `config.toml`은 코드가 아니라 설정 파일이라서, `.streamlit/config.toml` 경로에 정확히 위치해야 Streamlit이 자동으로 인식한다는 걸 확인함
+
+---
 
 
 
