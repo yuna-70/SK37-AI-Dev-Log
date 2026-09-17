@@ -72,6 +72,76 @@
 
 ---
 
+## 📅 2026-09-16 | 집계함수·GROUP BY·UPSERT·형변환·내장함수·JOIN 시작
+> 코드: [`aggregate_groupby.sql`](./aggregate_groupby.sql), [`upsert.sql`](./upsert.sql), [`variables_casting.sql`](./variables_casting.sql), [`functions.sql`](./functions.sql), [`join.sql`](./join.sql) (`query_filter.sql`에 조건별 조회 실습 2개 추가)
 
+### 개념
 
+**1. 집계 함수 (SUM, AVG, COUNT, MAX, MIN)**
+- 여러 행의 데이터를 입력받아 단 하나의 요약된 결과값을 계산하는 함수
+- NULL 값은 자동으로 계산 대상에서 제외됨
+
+**2. GROUP BY**
+- 특정 컬럼의 값이 같은 데이터끼리 묶어서 그룹별 집계 통계를 낼 때 사용 (Pandas의 `groupby`와 같은 기능)
+
+**3. WHERE vs HAVING**
+- WHERE: 개별 행 단위의 1차 필터링, 집계 함수 사용 불가, 그룹으로 묶기 **전** 필터링
+- HAVING: 그룹화된 결과에 대한 2차 필터링, 그룹으로 묶은 **후** 집계 결과 기준 필터링
+- 둘을 함께 쓸 수도 있음: `WHERE`로 먼저 개별 행을 거른 뒤 `GROUP BY`로 묶고, `HAVING`으로 그룹 결과를 한 번 더 거르는 조합
+
+**4. 조건부 데이터 입력/수정 (UPSERT)**
+- `INSERT IGNORE`: PK 중복 에러 발생 시 에러 무시하고 해당 행 삽입을 건너뜀
+- `ON DUPLICATE KEY UPDATE`: PK 중복이 없으면 신규 삽입, 중복되면 지정한 값으로 자동 수정
+
+**5. 사용자 정의 변수 (@변수)**
+- 세션이 유지되는 동안 프로그램 전체에서 값을 기억하는 변수
+- 사용법: `SET @변수명 = 값;` → 쿼리 안에서 `@변수명`으로 참조
+
+**6. 명시적/묵시적 형변환**
+- 명시적(Explicit): `CAST(값 AS 타입)` / `CONVERT(값, 타입)`으로 개발자가 직접 변환
+  - 주의: 형변환 함수 안에서는 테이블 생성용 타입(INT, VARCHAR, FLOAT)이 아니라 전용 타입을 써야 함
+    (정수 → `SIGNED`/`UNSIGNED`, 문자열 → `CHAR`, 실수 → `DECIMAL`)
+- 묵시적(Implicit): 형변환 함수 없이 연산자/문맥에 따라 MySQL이 자동으로 타입 변환
+  - `'100' + '200'`처럼 숫자로 변환 가능한 문자열은 자동 계산되지만, `'a' + 'B'`처럼 변환 불가능하면 0으로 처리됨(에러 없이)
+  - 문자열을 "연결"하려면 `+`가 아니라 `CONCAT()`을 써야 함
+
+**7. 주요 내장 함수**
+- 문자열: `CONCAT`(연결), `SUBSTRING`(부분 추출), `LENGTH`/`CHAR_LENGTH`, `LOWER`/`UPPER`, `REPLACE`
+- 날짜: `NOW()`, `CURDATE()`, `CURTIME()`, `DATEDIFF`, `DATE_ADD`, `DATE_FORMAT`
+- 제어 흐름: `IF(조건, 참값, 거짓값)`, `IFNULL(값, 대체값)`, `CASE WHEN ... THEN ... ELSE ... END`
+  - CASE는 위에서부터 순차 평가, 가장 먼저 참이 되는 조건의 결과 반환, ELSE 생략 시 미충족 시 NULL 반환
+- NULL 처리: `IS NULL` / `IS NOT NULL`
+  - NULL은 "값이 없음/알 수 없음"이라 `=`, `!=` 같은 일반 비교 연산자로 비교 불가, 반드시 `IS`로 확인
+- `LIKE`와 `IN`의 차이: `LIKE`는 와일드카드(`%`, `_`)를 활용한 **부분 일치** 검색, `IN`은 지정한 목록 중 **완전 일치**하는 값만 찾음
+
+**8. 조인(JOIN)**
+- 여러 테이블에 나뉘어 저장된 데이터를 공통 컬럼(PK-FK)을 매개로 하나로 합쳐 조회하는 기술
+- 종류
+  - INNER JOIN: 두 테이블 모두에 존재하는 교집합만 결합
+  - LEFT/RIGHT OUTER JOIN: 한쪽 테이블 기준 전체 + 매칭 데이터 결합
+  - CROSS JOIN: 모든 경우의 수 조합(카테시안 곱)
+  - SELF JOIN: 자기 자신과의 조인 (조직도 등)
+
+### 왜 이렇게 코딩했는가
+- `ON DUPLICATE KEY UPDATE point = point + 100`처럼 기존 값에 **더하는** 방식으로 UPDATE한 이유
+  → 포인트를 새 값으로 덮어쓰는 게 아니라, 기존 포인트에 누적시켜야 하는 요구사항이라 `point + 100`으로 작성함
+- `SET @target_continent = "Asia";`로 변수를 만들고 `WHERE Continent = @target_continent`로 사용한 이유
+  → 같은 값을 쿼리 여러 곳에서 반복해서 쓸 때, 값을 직접 여러 번 타이핑하지 않고 변수 하나로 관리하기 위함
+- `FROM city AS C`, `INNER JOIN country AS CO`처럼 테이블에 짧은 별칭(alias)을 붙인 이유
+  → `city.Name`, `country.Name`처럼 두 테이블에 같은 이름의 컬럼(`Name`)이 있어서, 별칭 없이 쓰면
+    어느 테이블의 `Name`인지 구분이 안 됨. `C.Name`, `CO.Name`처럼 별칭을 붙여 명확히 구분함
+- `ON C.CountryCode = CO.Code`처럼 조인 조건에 서로 **다른 이름의 컬럼**을 쓴 이유
+  → city 테이블의 외래키 컬럼명은 `CountryCode`, country 테이블의 기본키 컬럼명은 `Code`로 원래
+    이름이 다르기 때문에, JOIN 조건에서는 "값이 같은지"만 확인하면 되고 컬럼명이 똑같을 필요는 없음을 확인함
+
+### 막혔던 부분 / 이해 포인트
+- `SELECT "a" + "B" AS A`가 에러 없이 `0`을 반환하는 걸 보고 처음엔 당황했는데, MySQL의 `+`는 파이썬과 달리 **오직 숫자 연산 전용**이라서, 숫자로 변환 안 되는 문자열끼리 더하면 에러 대신 0으로 처리된다는 걸 확인함
+  → 문자열을 합치고 싶을 땐 `+`가 아니라 `CONCAT()`을 써야 한다는 걸 이해함
+- `WHERE 컬럼명 = NULL`은 항상 결과가 없다는 걸 확인함 (NULL은 "값"이 아니라 "상태"라서 `=`로 비교 자체가 성립 안 함) → `IS NULL`을 써야 한다는 걸 체감함
+- INNER JOIN은 `WHERE`, `ORDER BY`, `LIMIT`과 함께 자연스럽게 조합해서 쓸 수 있다는 걸 확인함
+  → JOIN으로 두 테이블을 합친 결과를, 마치 하나의 테이블처럼 필터링(WHERE)·정렬(ORDER BY)·개수 제한(LIMIT) 할 수 있음
+- `SELECT` 절에서 만든 별칭(alias)은 **같은 SELECT 절 안에서는 재참조가 안 된다**는 걸 확인함
+  → SQL은 `FROM → WHERE → GROUP BY → HAVING → SELECT → ORDER BY` 순서로 실행되는데, 별칭은 `SELECT` 단계에서 만들어지므로 같은 `SELECT` 절 내 다른 컬럼 계산에는 아직 쓸 수 없음 (단, `HAVING`이나 `ORDER BY`에서는 `SELECT`보다 늦게 실행되므로 별칭 재사용 가능)
+
+---
 

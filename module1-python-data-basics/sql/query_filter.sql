@@ -29,3 +29,14 @@ WHERE Continent IN ("Asia", "Europe", "North America");
 SELECT Name
 FROM country
 WHERE Name LIKE "South%";
+
+-- [실습] city: 한국(KOR) 도시 중 인구 100만 이상, 인구수 내림차순
+SELECT Name, Population
+FROM city
+WHERE CountryCode = "KOR" AND Population >= 1000000
+ORDER BY Population DESC;
+
+-- [실습] country: 기대수명 80세 이상인 국가의 Name, Continent, LifeExpectancy
+SELECT Name, Continent, LifeExpectancy
+FROM country
+WHERE LifeExpectancy >= 80;
