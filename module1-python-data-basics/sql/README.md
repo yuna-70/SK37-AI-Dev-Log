@@ -145,3 +145,113 @@
 
 ---
 
+## 📅 2026-09-17 | 외부/상호/자체 조인, 인덱스, 뷰, 스토어드 프로시저, 백업·복원, PyMySQL 연동 (SQL 마무리)
+> 코드: [`join_outer.sql`](./join_outer.sql), [`join_cross_self.sql`](./join_cross_self.sql), [`index_practice.sql`](./index_practice.sql), [`view_practice.sql`](./view_practice.sql), [`stored_procedure.sql`](./stored_procedure.sql), [`pymysql_study.py`](./pymysql_study.py), [`streamlit_db_basic.py`](./streamlit_db_basic.py), [`streamlit_db_search.py`](./streamlit_db_search.py)
+
+### 개념
+
+**1. 외부 조인 (LEFT / RIGHT OUTER JOIN)**
+- LEFT OUTER JOIN: 왼쪽(기준) 테이블의 모든 행 출력, 오른쪽에 매칭 데이터 없으면 NULL로 채움
+- RIGHT OUTER JOIN: 오른쪽(기준) 테이블의 모든 행 출력, 왼쪽에 매칭 데이터 없으면 NULL로 채움
+
+**2. 상호 조인 (CROSS JOIN)**
+- 조인 조건(ON) 없이 A 테이블의 모든 행과 B 테이블의 모든 행을 1:1로 무조건 조합
+- 결과 행 수 = A 행 수 × B 행 수, 주로 성능 테스트·더미 데이터 생성에 활용
+
+**3. 자체 조인 (SELF JOIN)**
+- 하나의 테이블 내에서 계층 구조(사원-상사, 카테고리-상위카테고리)를 조회할 때, 자기 자신과 조인
+- 한 테이블을 두 번 참조하므로 반드시 서로 다른 별칭(E, M 등) 필요
+
+**4. 인덱스(Index)**
+- 데이터를 특정 기준으로 정렬해 피라미드(Tree) 구조로 묶어, 빠르게 찾을 수 있게 하는 장치
+- Full Table Scan(인덱스 없을 때, 처음부터 끝까지 다 읽음) vs Index Scan(인덱스로 바로 찾음)
+- B-Tree 구조: 루트 노드 → 중간 노드 → 리프 노드, 1억 건이어도 3~4번 이동으로 탐색 완료
+- 클러스터형 인덱스(PK 지정 시 자동 생성, 테이블당 1개, 리프 노드에 데이터 전체 저장) vs
+  보조 인덱스(여러 개 생성 가능, `CREATE INDEX`로 생성, 리프 노드에 PK 값만 저장)
+- `CREATE INDEX 인덱스명 ON 테이블명(컬럼)` / `DROP INDEX 인덱스명 ON 테이블명`
+- `EXPLAIN`: SQL 앞에 붙이면 실행 계획(스캔 방식) 확인 가능 (`type=ALL`은 Full Scan, `type=ref`+`key`는 Index Scan)
+
+**5. 뷰(View)**
+- 실제 데이터를 저장하지 않고, SELECT 쿼리(정의)만 저장해뒀다가 호출 시 원본 테이블을 조회해 결과 반환하는 가상 테이블
+- 디스크 절약 + 원본 데이터 변경 시 즉시 반영(실시간 동기화)
+- 활용: 보안(민감 컬럼 제외한 뷰만 접근권한 부여), 복잡한 JOIN 쿼리 재사용
+- `CREATE VIEW 뷰이름 AS SELECT ...` / `DROP VIEW 뷰이름`
+
+**6. 스토어드 프로시저(Stored Procedure)**
+- 자주 쓰는 SQL 코드를 DB에 미리 저장해두고 `CALL 프로시저명(매개변수)`로 호출하는 "DB 내장 함수"
+- `DELIMITER //`로 구분자를 임시 변경(프로시저 내부의 `;`가 SQL을 도중에 끊지 않도록) 후, 정의 끝나면 다시 `;`로 복원
+- `DECLARE`(내부 변수 선언), `SET`(고정값 대입), `INTO`(SELECT 결과를 변수에 저장)
+- `IN`(입력 매개변수) / `OUT`(출력 매개변수), 매개변수는 `p_`, 내부 변수는 `v_` 접두사 관례
+
+**7. 백업(Backup)과 복원(Restore)**
+- 논리적 백업(SQL Dump, `.sql` 텍스트 파일) vs 물리적 백업(디스크 파일 자체 복사)
+- Workbench: Server → Data Export(백업) / Data Import(복원)
+- 복원 시 `ERROR 1046 (No database selected)`: 백업 파일에 `CREATE DATABASE`/`USE` 구문이 없을 때 발생
+  → Data Import 화면의 `Default Target Schema`를 지정하거나, `.sql` 파일 맨 위에 `CREATE DATABASE IF NOT EXISTS ...; USE ...;` 직접 추가
+
+**8. Python-MySQL 연동 (PyMySQL)**
+- `pymysql`: 파이썬과 MySQL 간 통신을 담당하는 라이브러리 (`pip install pymysql`)
+- 연동 절차: `pymysql.connect(host, user, password, db, charset, cursorclass)` → `conn.cursor()` → `cursor.execute(sql)` → `cursor.fetchall()`
+- `cursorclass=pymysql.cursors.DictCursor`: 조회 결과를 `list[dict]` 형태로 받음 (기본은 튜플)
+- `fetchone()`(하나만) / `fetchmany(n)`(n개) / `fetchall()`(전체)
+- `localhost`는 "내 IP를 자동으로 찾아 적는 것"이 아니라, 컴퓨터 자신을 가리키는 **고정된 예약 주소**(`127.0.0.1`과 동일)
+
+**9. Streamlit + PyMySQL 연동**
+- `pymysql`로 조회한 `list[dict]` 결과를 `st.table()`로 바로 웹 화면에 표출 가능
+- `cursor.execute(sql, (값1, 값2))`처럼 SQL 안에 `%s` 플레이스홀더를 쓰고 값을 튜플로 따로 전달하면, 사용자 입력값이 SQL 구문에 안전하게 반영됨 (SQL Injection 방지)
+
+### 왜 이렇게 코딩했는가
+- 자체 조인(SELF JOIN)에서 같은 테이블(`employees`)을 `e`, `m`이라는 서로 다른 별칭으로 두 번 참조한 이유
+  → 하나의 테이블을 "사원 역할"과 "상사 역할" 두 가지로 동시에 다뤄야 하는데, 별칭이 없으면 두 참조를 구분할 방법이 없어서 반드시 별칭이 필요함
+- 인덱스 성능 비교 실습에서 `world.city`를 그대로 안 쓰고 `city_test`라는 복사본을 만들어서 실습한 이유
+  → 원본 테이블을 건드리지 않고, 인덱스 생성 전/후의 `EXPLAIN` 결과를 안전하게 비교하기 위함
+- 뷰(View)를 만들 때 민감 컬럼(`user_ssn`, `salary`)을 제외하고 `user_id`, `user_name`만 선택한 이유
+  → 원본 테이블에 대한 접근은 차단하고, 안전한 컬럼만 뷰로 노출해서 보안(접근 통제)을 구현하기 위함
+- `pymysql.connect()`에 `cursorclass=pymysql.cursors.DictCursor`를 지정한 이유
+  → 기본값(튜플)으로 받으면 순서로만 값에 접근해야 하는데, 딕셔너리로 받으면 `city['Name']`처럼 컬럼명으로 값을 꺼낼 수 있어 가독성이 좋음
+- `streamlit_db_search.py`에서 SQL 안에 값을 직접 문자열로 끼워 넣지 않고 `%s` 플레이스홀더를 쓴 이유
+  → `cursor.execute(sql, (continent, min_pop))`처럼 값을 따로 전달하면, 사용자 입력값에 특수문자나
+    악의적인 SQL 구문이 섞여 들어와도 SQL 자체가 깨지거나 악용되지 않도록 막아주는 효과(SQL Injection 방지)가 있음
+- `st.sidebar.selectbox()`로 대륙 선택은 사이드바에, `st.form()`으로 최소 인구수 입력과 검색 버튼은
+  메인 화면에 배치한 이유
+  → 검색 조건(대륙)은 항상 보이는 사이드바에 고정해두고, 실제 실행을 트리거하는 입력(인구수+버튼)은
+    form으로 묶어서 버튼을 누르기 전까지 화면이 매번 새로고침되지 않도록 함
+
+### 막혔던 부분 / 이해 포인트
+- `EXPLAIN` 결과에서 `type` 컬럼이 `ALL`(Full Table Scan)에서 `ref`(Index Scan)로 바뀌는 걸 직접 확인하며, 인덱스가 실제로 검색 경로를 바꾼다는 걸 체감함
+- 뷰는 `DROP VIEW`를 해도 원본 테이블(`real_user`) 데이터는 그대로 남아있는 걸 확인하며 뷰가 SELECT 쿼리의 "이름표"일 뿐이라는 걸 이해함
+- `localhost`가 "내 IP를 자동으로 찾아 적는 것"이 아니라, **컴퓨터 자신을 가리키는 고정된 예약 주소**(`127.0.0.1`과 동일)라는 걸 확인함
+- `pymysql`로 접속하는 것도 결국 MySQL Workbench와 똑같이 **같은 MySQL 서버**에 접속하는 것이고, 접속 도구만 다를 뿐 데이터는 같은 곳에 있다는 걸 이해함
+- `app.py`에서 `return cursor.fetchall()`을 `with` 블록 안에 두면, `return` 즉시 함수가 종료되어
+  그 아래에 있던 `conn.close()`가 실행되지 않는다는 걸 확인함
+  → DB 연결을 안전하게 닫으려면, 결과를 먼저 변수에 담고 `with` 블록을 빠져나온 뒤 `conn.close()`를
+    호출하고, 그 다음에 `return`해야 한다는 걸 이해함
+
+---
+
+## 📅 2026-09-17 | Streamlit + PyMySQL 연동 실습
+> 코드: [`streamlit_db_basic.py`](./streamlit_db_basic.py), [`streamlit_db_search.py`](./streamlit_db_search.py)
+
+### 왜 이렇게 코딩했는가
+- `streamlit_db_search.py`에서 SQL 안에 값을 직접 문자열로 끼워 넣지 않고 `%s` 플레이스홀더를 쓴 이유
+  → `cursor.execute(sql, (continent, min_pop))`처럼 값을 따로 전달하면, PyMySQL이 안전하게 값을 채워 넣어줌.
+    이렇게 하면 사용자 입력값에 특수문자나 악의적인 SQL 구문이 섞여 들어와도 SQL 자체가 깨지거나
+    악용되지 않도록 막아주는 효과(SQL Injection 방지)가 있음
+- `st.sidebar.selectbox()`로 대륙 선택은 사이드바에, `st.form()`으로 최소 인구수 입력과 검색 버튼은
+  메인 화면에 배치한 이유
+  → 검색 조건(대륙)은 항상 보이는 사이드바에 고정해두고, 실제 실행을 트리거하는 입력(인구수+버튼)은
+    form으로 묶어서 버튼을 누르기 전까지 화면이 매번 새로고침되지 않도록 함
+- `st.table(data)`로 조회 결과를 출력한 이유
+  → `pymysql`이 `list[dict]` 형태로 반환한 결과를, 별도 가공 없이 바로 표 형태로 웹에 표출하기 위함
+
+### 막혔던 부분 / 이해 포인트
+- `app.py`에서 `return cursor.fetchall()`을 `with` 블록 안에 두면, `return` 즉시 함수가 종료되어
+  그 아래에 있던 `conn.close()`가 실행되지 않는다는 걸 확인함
+  → DB 연결을 안전하게 닫으려면, 결과를 먼저 변수에 담고 `with` 블록을 빠져나온 뒤 `conn.close()`를
+    호출하고, 그 다음에 `return`해야 한다는 걸 이해함
+- `WHERE CO.Continent = %s AND C.Population >= %s`처럼 SQL 문자열 안에 `%s`를 넣고,
+  `cursor.execute(sql, (continent, min_pop))`으로 튜플을 따로 전달하는 방식이 파이썬 f-string으로
+  직접 문자열을 조합하는 것과 다르다는 걸 확인함 (f-string으로 직접 조합하면 보안에 취약해짐)
+
+---
+
