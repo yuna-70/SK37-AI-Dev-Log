@@ -431,3 +431,138 @@
 
 ---
 
+## 📅 2026-10-02 | EDA 시각화 (막대 · 원 · 히스토그램 · 박스플롯 · 산점도 · 히트맵)
+> 코드: [`eda_plotly.py`](./eda_plotly.py)
+
+### 개념
+
+**1. 막대 그래프**
+- 개념: 범주형 컬럼에 대해 범주별 수치 데이터의 크기(총합, 평균 등)를 직사각형 막대로 표현하는 그래프
+- 구현 방법
+  - 수직 막대: `px.bar(data_frame, x, y)`
+  - 수평 막대: `px.bar(data_frame, x, y, orientation="h")`
+- 하이퍼파라미터
+  - `x`, `y`
+    - 수직형: x가 범주형 컬럼, y가 수치형 컬럼
+    - 수평형: x가 수치형 컬럼, y가 범주형 컬럼
+  - `orientation`: `"v"`(수직, 기본값), `"h"`(수평)
+  - `category_orders`: 범주의 표시 순서를 직접 지정 (예: `{"day": ["Thur", "Fri", "Sat", "Sun"]}`)
+  - `color`: 범주별 색상 구분
+
+**2. 그래프용 데이터 만들기 — groupby 결과의 자료형 변환**
+- `df.groupby(by="컬럼")["집계 컬럼"].mean()` → 결과는 **Series**
+- plotly는 DataFrame을 받으므로 변환이 필요함
+  - `Series.reset_index()`: 행 인덱스를 컬럼으로 바꾸고 번호 행 인덱스를 새로 추가 → **DataFrame** 생성
+  - `df.rename(columns={"기존명": "새이름"})`: 컬럼 이름 변경
+
+**3. 원 그래프**
+- 개념: 범주형 컬럼에서 전체에 대한 각 범주의 비율을 시각적으로 나타내며, 부분과 전체의 관계를 파악하기 용이한 그래프
+- 구현 방법: `px.pie(data_frame, names, values, hole)`
+- 하이퍼파라미터
+  - `names`: 범주형 컬럼 (원의 조각 이름)
+  - `values`: 수치형 컬럼 (조각의 크기)
+  - `hole`: 0~1 사이 값을 설정하여 도넛 모양으로 변경
+- 비율 계산: `df["컬럼"].value_counts(normalize=True)` → 빈도수 대신 비율(합이 1) 반환, 컬럼명은 `proportion`
+
+**4. 히스토그램(Histogram)**
+- 개념: 수치형 데이터의 분포를 구간(bin)별로 나누어 구간별 누적 빈도를 직사각형 막대로 표현하는 그래프
+- 구현 방법
+  - 수직형: `px.histogram(data_frame, x, y=None, nbins, color)`
+  - 수평형: `px.histogram(data_frame, x=None, y, color)`
+- 하이퍼파라미터
+  - `x`, `y`
+    - 수직형: x가 수치형 컬럼, y=None (y축은 빈도수가 자동 계산됨)
+    - 수평형: x=None, y가 수치형 컬럼
+  - `nbins`: 빈(bin)의 개수 설정 (미지정 시 최적값 자동 계산)
+  - `color`: 새로운 변수를 추가하여 색상으로 구분
+  - `barmode`: `"overlay"`(겹쳐서 표시, `opacity`와 함께 사용) / `"group"`(나란히 분리해서 표시)
+- `fig.update_traces(marker_line_color, marker_line_width)`: 모든 막대에 일괄적으로 경계선 지정
+
+**5. 박스 플롯(Box plot)**
+- 개념: 수치형 컬럼에 대해서 최소값(min), 1사분위수(Q1), 2사분위수(Q2, median), 3사분위수(Q3), 최대값(max)을 이용하여 데이터의 분포를 시각적으로 요약하고 이상치를 식별하는 데 유용한 그래프
+- 구현 방법: `px.box(data_frame, x, y, color)`
+- 하이퍼파라미터
+  - 수직형: x가 범주형 컬럼, y가 수치형 컬럼
+  - 수평형: x가 수치형 컬럼, y가 범주형 컬럼
+
+**6. 산점도(Scatterplot)**
+- 개념: 두 변수의 상관 관계를 직교 좌표계의 평면에 점으로 표현하는 그래프
+- 구현 방법: `px.scatter(data_frame, x, y, color)`
+- 하이퍼파라미터: `x`, `y`는 상관 관계를 분석할 두 수치형 컬럼
+
+**7. heatmap**
+- 개념: 변수들 간의 상관 계수 크기를 색상의 농도로 표현하여 변수 간의 관계를 한눈에 파악하는 그래프
+- 구현 방법: `px.imshow(img, text_auto, color_continuous_scale)`
+- 하이퍼파라미터
+  - `img`: 상관 행렬(DataFrame) → `df.corr(numeric_only=True)`의 결과
+  - `text_auto`: 상관계수 수치 형식을 표시 (예: `text_auto=".2f"`)
+  - `color_continuous_scale`: 히트맵의 색상 테마 설정 (예: `"RdBu_r"`, `"Viridis"`)
+
+**8. seaborn과 plotly 비교**
+- seaborn 직선 그래프: `sns.lineplot(data, x, y, hue)` + `plt.show()`
+- plotly의 `color` 매개변수가 seaborn에서는 `hue`에 해당함
+- 같은 기능이라도 라이브러리마다 매개변수 이름이 다름
+
+### 왜 이렇게 코딩했는가
+- `groupby` 결과를 그대로 쓰지 않고 `reset_index()`로 DataFrame으로 변환한 이유
+  → `groupby().mean()`의 결과는 Series라서 plotly의 `data_frame` 매개변수에 바로 넣을 수 없기 때문
+- `rename()`으로 컬럼명을 `total_bill` → `avg_total_bill`로 바꾼 이유
+  → 평균값이 담긴 컬럼인데 이름이 원본과 같으면 그래프 축 이름만 보고 무엇인지 알 수 없기 때문
+- `category_orders`로 요일 순서를 직접 지정한 이유
+  → 지정하지 않으면 알파벳순(Fri, Sat, Sun, Thur)으로 정렬되어 요일의 흐름이 깨지기 때문
+- 히스토그램에서 `barmode="overlay"`와 `barmode="group"`을 모두 그려본 이유
+  → 겹쳐서 보는 방식과 나눠서 보는 방식 중 어느 쪽이 그룹 간 비교에 유리한지 직접 확인하기 위함
+- 같은 직선 그래프를 plotly와 seaborn으로 각각 그려본 이유
+  → 두 라이브러리의 코드 구조와 매개변수 이름(`color` vs `hue`)이 어떻게 다른지 비교하기 위함
+
+### 이해 포인트
+- 히스토그램에서 `y`와 `color`의 역할을 구분하게 됨
+  - `x`, `y`: **축에 올릴 값**을 지정하는 매개변수
+  - `color`: 데이터를 **그룹으로 나눠 색을 다르게** 칠하는 매개변수
+  → 히스토그램의 y축은 원래 빈도수가 자동으로 들어가는 자리이므로, 수직 히스토그램에서 `y`에 다른 컬럼을 지정하면
+    빈도수 대신 그 값이 축에 올라가 의도와 다른 그래프가 됨
+- 그래프 변수명을 `fig7` ~ `fig10`처럼 번호로만 짓다 보니, 수평 히스토그램을 작성할 때 수직 히스토그램의 변수명과 겹쳐
+  앞서 만든 그래프 객체가 덮어써지는 상황이 생김
+  → `.show()`로 바로 출력할 때는 문제가 없지만, 나중에 `write_html()`로 저장하려면 앞 그래프를 찾을 수 없게 됨
+  → 번호보다 역할이 드러나는 이름(`fig_hist_v`, `fig_hist_h`)이 안전함
+- 히트맵은 원본 데이터가 아니라 **상관 행렬(DataFrame)**을 입력으로 받는다는 걸 확인함
+  → `px.imshow(img=df.corr(numeric_only=True))` 형태로, 상관 분석을 먼저 실행한 결과를 넘겨야 함
+- tips 데이터의 상관 분석 결과를 해석해봄
+  - `total_bill`-`tip`: `0.68` → 중간 이상의 양의 상관. 요금이 많을수록 팁도 많아지는 경향이 뚜렷함
+  - `total_bill`-`size`: `0.60` → 일행이 많을수록 요금도 많아짐
+  - `tip`-`size`: `0.49` → 일행 수와 팁은 요금만큼 강하지는 않음
+  → 앞서 ad_performance 데이터는 상관계수가 전부 0 근처였는데, tips는 실제 데이터라 의미 있는 관계가 나타남
+
+---
+
+## 📅 2026-10-02 | EDA 연습 문제 (8문제)
+> 코드: [`eda_practice.py`](./eda_practice.py)
+
+### 개념
+- 정렬·그룹화·빈도 분석 등 통계 처리를 먼저 하고, 그 결과를 plotly 그래프로 시각화하는 흐름을 종합적으로 연습하는 문제
+- 문제별 핵심 요구사항
+  1. `sort_values(ascending=False)` + `px.line`
+  2. `groupby` + `reset_index` + `px.bar`
+  3. `category_orders` + `orientation="h"`
+  4. `value_counts(normalize=True)` + `px.pie(hole=0.3)`
+  5. `px.histogram` + `color`로 그룹 구분
+  6. `px.box` + 수평 방향 + 범주 순서 지정
+  7. `px.scatter` + `color`
+  8. `df.corr()` + `px.imshow(text_auto, color_continuous_scale)`
+
+### 왜 이렇게 코딩했는가
+- 문제 2·3에서 `groupby` 결과를 변수에 담고 `reset_index()`를 다음 줄에 따로 쓴 이유
+  → 정답지는 한 줄로 연결했지만, 중간 결과(Series)와 최종 결과(DataFrame)를 각각 확인하기 위해 단계를 나눔
+- 문제 3에서 요구사항에 없는 `color="day"`를 추가한 이유
+  → 요일별로 색이 구분되면 막대를 눈으로 비교하기 쉬워지기 때문
+
+### 막혔던 부분 / 이해 포인트
+- 5번에서 "흡연 여부에 따라 막대의 **색상**이 구분되도록"이라는 조건을 `y="smoker"`로 구현하는 실수를 함
+  → `y`는 축에 올릴 값을 지정하는 매개변수이고, 그룹별 색상 구분은 `color`가 담당함
+  → 바로 앞에서 수평 히스토그램(`y="total_bill"`)을 연습한 직후라 두 매개변수의 역할이 섞인 것으로 보임
+  → 수정: `px.histogram(data_frame=df_tips, x="tip", color="smoker")`
+- 8번에서 `color_continuous_scale="RdBu_r"`을 정답지와 동일하게 작성함
+  → `_r`은 reverse(색상 순서 뒤집기)를 의미하며, 상관계수처럼 음수~양수를 다루는 값에서는
+    양수를 붉은색, 음수를 푸른색으로 보여주는 쪽이 직관적임
+
+---
