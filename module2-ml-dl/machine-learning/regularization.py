@@ -86,3 +86,35 @@ print(f"평가용 데이터에 대한 예측값: \n{pred_test_lasso}")
 ## 모델 평가 -> 규제 전후 비교
 rmse_lasso = root_mean_squared_error(y_test, pred_test_lasso)
 print(f"평가용 데이터에 대한 성능(RMSE): {rmse_lasso}")
+
+
+# Ridge 모델 (L2 규제) -> 가중치를 같은 비율로 줄여 0에 가깝게 만듦
+
+## 모델 생성
+from sklearn.linear_model import Ridge
+
+ridge = Ridge()
+
+## 모델 학습
+ridge.fit(X_train_scaled, y_train)
+print("학습 완료")
+
+## L2 규제가 적용된 기울기 / 절편 확인
+print(f"L2 규제가 적용된 선형 회귀 모델의 기울기: \n{ridge.coef_}")
+print(f"L2 규제가 적용된 선형 회귀 모델의 절편: {ridge.intercept_}")
+
+## 0이 된 특성의 수 확인 -> L1(Lasso)과 비교하기 위함
+print(f"Lasso에서 0이 된 특성의 수: {(lasso.coef_ == 0).sum()}개")
+print(f"Ridge에서 0이 된 특성의 수: {(ridge.coef_ == 0).sum()}개")
+
+## 평가용 데이터를 이용한 예측
+pred_test_ridge = ridge.predict(X_test_scaled)
+print(f"평가용 데이터에 대한 예측값: \n{pred_test_ridge}")
+
+## 모델 평가 -> 세 모델 비교
+rmse_ridge = root_mean_squared_error(y_test, pred_test_ridge)
+print(f"평가용 데이터에 대한 성능(RMSE): {rmse_ridge:.4f}")
+
+print(f"선형 회귀(규제 없음): {rmse_lireg:.4f}")
+print(f"Lasso(L1 규제): {rmse_lasso:.4f}")
+print(f"Ridge(L2 규제): {rmse_ridge:.4f}")
