@@ -266,3 +266,122 @@ print(f"베이스라인(전원 잔류로 예측): {baseline:.4f}")
 print(f"LogisticRegression: {accuracy_lr:.4f}")
 print(f"SVM: {accuracy_svc:.4f}")
 print(f"DecisionTree: {accuracy_dt:.4f}")
+
+# LogisticRegression 모델의 특성 중요도 확인
+
+## 필요한 라이브러리 임포트
+import numpy as np
+
+## 기울기(가중치)의 크기 추출 -> model.coef_ -> 절댓값 적용
+### 부호는 방향(이탈↑/↓)을 뜻하므로, 영향력의 크기만 보려면 절댓값을 사용
+feature_importances = np.abs(lr.coef_[0])
+print(f"각 컬럼별 직선의 기울기(가중치): \n{feature_importances}")
+
+## 컬럼 이름과 기울기의 크기 -> DataFrame 생성
+
+### 컬럼 이름(특성 이름) 추출
+feature_names = X_train.columns
+
+### dict 자료형 생성
+dict_data = {
+    "Feature": feature_names,
+    "Importance": feature_importances
+}
+
+### DataFrame 생성 및 내림차순 정렬
+df_lr_train_importance = pd.DataFrame(data=dict_data).sort_values(by="Importance", ascending=False)
+display(df_lr_train_importance)
+
+## 상위 5개 추출 -> df.head(5)
+df_lr_train_imp_top5 = df_lr_train_importance.head(5)
+display(df_lr_train_imp_top5)
+
+## 막대 그래프로 Top5 시각화
+import plotly.express as px
+
+fig1 = px.bar(
+    data_frame=df_lr_train_imp_top5,
+    x="Feature",
+    y="Importance",
+    text_auto=".4f",
+    title="[LogisticRegression] 학습용 데이터 특성 중요도 Top5"
+)
+fig1.show()
+
+# LogisticRegression 분류 모델 고도화
+
+## 필요한 클래스 임포트
+from sklearn.model_selection import GridSearchCV
+
+## 성능 고도화 대상 모델 생성
+lr = LogisticRegression(random_state=0)
+
+## 최적화 할 매개 변수와 탐색의 조건 설정 -> 5 * 4 = 20가지
+### C: 규제의 강도 -> 값이 작을수록 규제가 강함(L2 규제의 alpha와 반대 방향)
+### max_iter: 최적의 직선을 찾기 위해 반복할 최대 횟수
+params = {
+    "C": [0.01, 0.1, 1, 10, 100],
+    "max_iter": [100, 500, 1000, 5000]
+}
+
+## 탐색 도구 생성 -> 불균형 데이터이므로 scoring은 f1 기준
+grid_lr = GridSearchCV(
+    estimator=lr,
+    param_grid=params,
+    scoring="f1",
+    cv=5
+)
+
+## 학습 및 검증
+grid_lr.fit(X_train, y_train)
+print("검증 완료")
+
+## best 모델 추출
+best_lr = grid_lr.best_estimator_
+print(best_lr)
+
+## 검증용 데이터에 대한 최적의 성능 확인
+print(grid_lr.best_score_)
+
+## best 모델의 특성 중요도 확인
+best_lr_train_importances = np.abs(best_lr.coef_[0])
+
+dict_data = {
+    "Feature": feature_names,
+    "Importance": best_lr_train_importances
+}
+
+df_best_lr_train_importance = pd.DataFrame(data=dict_data).sort_values(by="Importance", ascending=False)
+df_best_lr_train_imp_top5 = df_best_lr_train_importance.head(5)
+display(df_best_lr_train_imp_top5)
+
+fig2 = px.bar(
+    data_frame=df_best_lr_train_imp_top5,
+    x="Feature",
+    y="Importance",
+    text_auto=".4f",
+    title="[고도화된 LogisticRegression] 학습용 데이터 특성 중요도 Top5"
+)
+fig2.show()
+
+## 평가용 데이터를 이용한 예측 및 평가
+pred_test_best_lr = best_lr.predict(X_test)
+
+from sklearn.metrics import classification_report
+
+performance_best_lr = classification_report(y_test, pred_test_best_lr)
+print(f"고도화된 LogisticRegression 모델의 4가지 성능: \n{performance_best_lr}")
+
+# 탐색 결과와 기본값을 비교
+
+## C를 기본값(1)으로 두고 max_iter만 500으로 설정한 모델 생성
+### 탐색이 고른 C=100이 실제로 의미가 있었는지 확인하기 위함
+best_lr1 = LogisticRegression(max_iter=500, random_state=0)
+best_lr1.fit(X_train, y_train)
+print("학습 완료")
+
+## 평가용 데이터를 이용한 예측 및 평가
+pred_test_best_lr1 = best_lr1.predict(X_test)
+
+performance_best_lr1 = classification_report(y_test, pred_test_best_lr1)
+print(f"C를 기본값으로 둔 LogisticRegression 모델의 4가지 성능: \n{performance_best_lr1}")
