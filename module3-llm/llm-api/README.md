@@ -8,16 +8,22 @@
 
 ### 개념
 
+**1. API와 토큰 요금**
 - API(Application Programming Interface)는 잘 만들어진 타사의 기능을 가져다 내 애플리케이션에 붙이는 통로임. LLM을 직접 만들지 않고 OpenAI가 만든 것을 호출해서 씀
 - API 사용량과 요금의 핵심 단위는 **토큰(Token)**이고, 토큰 1개는 서브워드 1개임
   - 자주 쓰이는 단어는 그 자체로 1토큰, 드문 단어나 신조어는 여러 서브워드로 쪼개짐 (Chatbot → Chat + bot, 먹었다 → 먹 + 었 + 다)
   - 11월 4일에 BPE와 WordPiece로 배웠던 그 서브워드 토큰화가 그대로 요금 단위가 됨
+
+**2. API 키 관리**
 - API 키는 `.env` 파일에 저장해 코드와 분리함
   - `load_dotenv()`가 `.env`의 내용을 환경 변수로 올려줌. 반환값 `True`는 파일을 찾았다는 뜻
   - `OpenAI()`를 인자 없이 호출해도 되는 이유는 환경 변수 `OPENAI_API_KEY`를 자동으로 읽기 때문임
-- 호출 방식 두 가지
-  - **Chat Completions API**: 채팅(질의응답) 기능. `messages=[{role, content}]`로 전달하고 `response.choices[0].message.content`로 답변을 꺼냄
-  - **Responses API**: 웹 검색 같은 도구(tool)를 붙일 수 있음. 시스템 프롬프트는 `instructions=`, 사용자 프롬프트는 `input=`으로 전달하고 `response.output_text`로 바로 꺼냄
+
+**3. 호출 방식 두 가지**
+- **Chat Completions API**: 채팅(질의응답) 기능. `messages=[{role, content}]`로 전달하고 `response.choices[0].message.content`로 답변을 꺼냄
+- **Responses API**: 웹 검색 같은 도구(tool)를 붙일 수 있음. 시스템 프롬프트는 `instructions=`, 사용자 프롬프트는 `input=`으로 전달하고 `response.output_text`로 바로 꺼냄
+
+**4. 프롬프트 엔지니어링**
 - 프롬프트는 역할에 따라 둘로 나뉨
   - **시스템 프롬프트**: AI에게 역할을 부여함 ("너는 경력 10년 이상의 감성 분석 전문가야")
   - **사용자 프롬프트**: 실제 요청 내용
@@ -27,6 +33,8 @@
   - **맥락 제시**: 판단에 필요한 배경 정보를 함께 제공
   - **예시 활용**: 원하는 결과물의 형태를 직접 보여줌
   - **반복 및 개선**: 결과를 보고 프롬프트를 고쳐나감
+
+**5. 스트리밍과 JSON 처리**
 - **스트리밍**은 답변이 다 만들어질 때까지 기다리지 않고 토큰이 생성되는 즉시 받아 처리하는 방식임. 체감 응답 속도가 빨라짐
 - API가 돌려주는 JSON은 **문자열**이지 파이썬 dict가 아님. `json.loads()`로 변환해야 키로 값을 꺼낼 수 있음
   - JSON은 큰따옴표만 허용함. 작은따옴표를 쓰면 `JSONDecodeError`가 발생함
