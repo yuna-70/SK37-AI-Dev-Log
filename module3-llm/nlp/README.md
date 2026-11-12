@@ -161,7 +161,7 @@
 
 ## 📅 2026-11-09 | Transformer와 self-attention 직접 구현
 
-> 코드: [self_attention.py](./self_attention.py)
+> 코드: [`self_attention.py`](./self_attention.py)
 
 ### 개념
 
@@ -220,8 +220,8 @@
 
 ## 📅 2026-11-10 | BERT와 전이 학습, HuggingFace로 감성 분석
 
-> 코드: [huggingface_pipeline.py](./huggingface_pipeline.py)
-> 코드: [bert_finetuning.py](./bert_finetuning.py)
+> 코드: [`huggingface_pipeline.py`](./huggingface_pipeline.py)
+> 코드: [`bert_finetuning.py`](./bert_finetuning.py)
 
 ### 개념
 
@@ -307,9 +307,9 @@
 
 ## 📅 2026-11-11 | 문장 임베딩(SentenceTransformer)과 유사도 기반 챗봇
 
-> 코드: [sentence_transformer.py](./sentence_transformer.py)
-> 코드: [movie_recommend_sbert.py](./movie_recommend_sbert.py)
-> 코드: [similarity_chatbot.py](./similarity_chatbot.py)
+> 코드: [`sentence_transformer.py`](./sentence_transformer.py)
+> 코드: [`movie_recommend_sbert.py`](./movie_recommend_sbert.py)
+> 코드: [`similarity_chatbot.py`](./similarity_chatbot.py)
 
 ### 개념
 
