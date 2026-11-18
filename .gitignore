@@ -4,3 +4,7 @@ ns_202104.csv
 
 # 환경 변수 (API 키)
 .env
+
+# 벡터 저장소 (실행하면 다시 생성됨)
+chroma_db/
+chroma_db_*/
