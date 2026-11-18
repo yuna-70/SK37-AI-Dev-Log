@@ -21,7 +21,7 @@
 **LLM**
 - OpenAI API: Chat Completions, Responses, 스트리밍
 - 프롬프트 엔지니어링
-- LangChain: Chain, Agent, Tool (예정)
+- LangChain: Chain과 LCEL, 대화형 챗봇, 도구(Tool), ReAct 에이전트
 - RAG: 벡터 DB, 하이브리드 검색, ChromaDB (예정)
 - LangGraph와 멀티 에이전트 (예정)
 - MCP (예정)
@@ -42,3 +42,4 @@ LLM 연동한 내외부 문서 기반 질의 응답 시스템
 
 - `nlp/` — 토큰화, 형태소 분석, 임베딩, 코사인 유사도, RNN, Transformer, BERT, 문장 임베딩
 - `llm-api/` — OpenAI API, 프롬프트 엔지니어링
+- `langchain/` — Chain과 LCEL, 대화형 챗봇, 외부 검색 도구, ReAct 에이전트
