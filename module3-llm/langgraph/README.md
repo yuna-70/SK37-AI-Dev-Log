@@ -81,3 +81,75 @@
   - 노드끼리 서로를 모르고 상태만 아는 구조라, 노드를 추가하거나 순서를 바꾸기가 쉬워짐
 
 ---
+
+## 📅 2026-11-20 | Pydantic BaseModel로 상태 정의하기
+
+> 코드: [`langgraph_pydantic_state.py`](./langgraph_pydantic_state.py)
+
+### 개념
+
+**1. Pydantic BaseModel**
+
+- `BaseModel`을 상속해 클래스를 만들면 **진짜 새로운 자료형**이 생김. `type()`이 `<class '__main__.User'>`로 나옴
+- 어제 `TypedDict`로 만든 건 `type()`이 `<class 'dict'>`였음. 이름만 붙은 평범한 딕셔너리였던 것과 대비됨
+- 값은 `user.id`처럼 **점(.)으로** 꺼냄. 딕셔너리처럼 `user["id"]`로는 못 꺼냄
+- `model_dump()`를 쓰면 딕셔너리로 바꿀 수 있고, 그다음부터는 `.get("id")`로 접근함
+
+**2. 유효성 검사**
+
+- `BaseModel`의 핵심은 **객체를 만드는 순간 자료형을 검사**한다는 것임
+- `name: str`로 선언한 자리에 리스트를 넣으면 `ValidationError`가 나면서 멈춤
+- 같은 구조를 `TypedDict`로 만들어 똑같이 넣어보면 아무 일 없이 그대로 저장됨
+- 그래서 외부에서 들어오는 값을 다룰 때, 잘못된 데이터가 **안쪽으로 흘러 들어가기 전에 막을 수 있음**
+
+**3. Field()**
+
+- `Field()`로 기본값과 설명을 함께 달 수 있음
+- `default=None`은 그 값을 기본값으로 쓰라는 뜻
+- `default_factory=list`는 객체를 만들 때마다 **새 빈 리스트를 만들어** 기본값으로 쓰라는 뜻. 리스트는 여러 객체가 같은 걸 공유하면 문제가 생기기 때문에 이렇게 씀
+- `description`은 사람이 읽는 설명이고 동작에는 영향을 주지 않음
+
+**4. 상태가 BaseModel이 되면 달라지는 것**
+
+- 노드 함수에서 값을 꺼낼 때 `state["messages"]`가 아니라 `state.messages`로 접근함
+- `Annotated[list[BaseMessage], add_messages]`는 그대로 씀. 리듀서는 상태를 무엇으로 정의하든 똑같이 동작함
+- 초기 상태도 딕셔너리가 아니라 `AgentState(messages=[HumanMessage(...)])`처럼 객체로 만듦
+- 노드 함수의 **반환값은 여전히 딕셔너리**임. LangGraph가 그 딕셔너리를 받아 상태 자료형으로 바꿔 반영함
+
+**5. 조건부 분기 설계 (실습3, 진행 중)**
+
+- 어제 만든 그래프는 `시작 → LLM → 도구 → 요약 → 끝` 일직선이라 **항상 도구를 썼음**
+- 실제 에이전트는 질문에 따라 검색을 할지 말지 갈라져야 함. 그래서 상태에 `needs_search`(불리언)와 `search_results`(문자열) 칸을 추가함
+- `classifier_node`는 LLM에게 `SEARCH` 또는 `NO_SEARCH` **한 단어만** 출력하게 시키고, 그 문자열을 `decision == "SEARCH"`로 불리언으로 바꿔 상태에 저장함
+- `answer_node`는 `state.needs_search`와 `state.search_results`를 보고 시스템 프롬프트를 **다르게 조립**함. 검색을 거쳤으면 검색 결과를 프롬프트에 넣고, 아니면 일반 비서 지침만 줌
+- 분기를 실제로 연결하는 라우팅 함수는 다음 시간에 이어서 함
+
+### 왜 이렇게 코딩했는가
+
+- 상태를 `TypedDict`에서 `BaseModel`로 바꾼 이유는, 에이전트가 커질수록 상태에 잘못된 값이 들어가는 사고를 막아야 하기 때문임. 어제 본 것처럼 `TypedDict`는 아무것도 막아주지 않음
+- `messages`에 `default_factory=list`를 쓴 이유는, `default=[]`로 쓰면 그 리스트 하나를 모든 객체가 공유해서 한쪽에서 추가한 메시지가 다른 쪽에도 보이는 문제가 생기기 때문임
+- `tool_output`을 `str | None`에 기본값 `None`으로 둔 이유는, 도구를 거치기 전에는 값이 없는 게 정상이기 때문임. 빈 문자열 `""`로 두면 "값이 없는 것"과 "도구가 빈 결과를 돌려준 것"을 구분할 수 없음
+- 실습3에서 분류 결과를 문자열이 아니라 불리언으로 바꿔 저장하는 이유는, 나중에 라우팅 함수가 **True / False 두 갈래로만** 판단하면 되게 하기 위함임. `"SEARCH"`, `"search"`, `"SEARCH."` 같은 변형을 그때마다 비교하지 않아도 됨
+- 분류 프롬프트에 "다른 설명은 일체 포함하지 마세요"까지 적은 이유는, LLM이 친절하게 이유를 덧붙이면 `decision == "SEARCH"` 비교가 바로 깨지기 때문임
+
+### 막혔던 부분 · 이해 포인트
+
+- **요약 AIMessage가 또 사라졌고, 이번엔 Pydantic도 못 막았음**
+  - 어제와 같은 증상이 다시 나왔음. 노드 세 개가 모두 실행됐는데 최종 상태의 `messages`에는 `[HumanMessage, AIMessage("도구 사용을 요청합니다."), ToolMessage]`만 있고 **요약 AIMessage가 없음**
+  - `최종 LLM 출력`도 요약문이 아니라 `도구 실행 완료`로 찍혔음
+  - 원인은 어제와 똑같이 `summarize_result`의 반환 키가 `"message"`였던 것임. `call_llm`은 `"messages"`로 고쳐져서 이번엔 제대로 들어왔고, 요약 노드만 남아 있었음
+  - **여기서 중요한 건, 상태를 Pydantic `BaseModel`로 바꿨는데도 이 오타를 못 잡았다는 것임**
+  - 어제 나는 "`TypedDict`가 실행 중에 검사를 안 해서 못 잡았다"고 정리했는데, 오늘 결과를 보면 원인이 거기에 있는 게 아니었음
+  - Pydantic이 검사하는 건 **상태 안에 들어갈 값의 자료형**이지, **노드가 반환한 딕셔너리의 키 이름**이 아님. 상태 스키마에 없는 키는 LangGraph가 반영 단계에서 그냥 무시함
+  - 그러니까 상태를 무엇으로 정의하든 이 종류의 오타는 못 잡음. 유효성 검사가 지켜주는 범위가 어디까지인지가 눈에 들어왔음
+- **`TypedDict`와 `BaseModel`의 차이를 에러 메시지로 확인했음**
+  - `name: str` 자리에 `["수지"]`를 넣었을 때, `Customer`(TypedDict)는 `{'id': 1, 'name': ['수지'], ...}`로 그냥 저장됐음
+  - `User`(BaseModel)는 `ValidationError: Input should be a valid string [type=string_type, input_value=['수지'], input_type=list]`로 멈췄음
+  - 기대한 자료형, 실제로 들어온 값, 실제 자료형을 다 알려줘서 어디를 고쳐야 할지가 바로 보였음
+  - 어제 `is_active`를 `is_activate`로 잘못 써도 통과했던 게 같은 이유였다는 게 연결됐음
+- **입력은 객체인데 결과는 딕셔너리로 돌아왔음**
+  - `AgentState(messages=[...])`로 객체를 만들어 `invoke()`에 넣었는데, `final_state`는 `{'messages': [...], 'tool_output': '도구 실행 완료'}` 형태의 딕셔너리였음
+  - 그래서 결과를 꺼낼 때는 `final_state.messages`가 아니라 `final_state["messages"]`를 써야 했음
+  - 노드 안에서는 점 접근, 결과에서는 대괄호 접근으로 **같은 상태인데 꺼내는 방법이 달랐음.** 헷갈리기 쉬운 지점이라 적어둠
+
+---
