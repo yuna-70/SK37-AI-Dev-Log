@@ -24,7 +24,8 @@
 - LangChain: Chain과 LCEL, 대화형 챗봇, 도구(Tool), ReAct 에이전트, bind_tools
 - RAG: 문서 로드와 분할, 임베딩, 벡터 저장소(FAISS, Chroma), 검색 기반 답변
 - RAG 심화: 희소 검색(BM25), 하이브리드 검색, 문서 로더(CSV)
-- LangGraph와 멀티 에이전트 (예정)
+- LangGraph: 상태(State), 노드와 엣지, 조건부 분기, 그래프 구성과 실행
+- 멀티 에이전트 (예정)
 - MCP (예정)
 - 멀티모달 (예정)
 
@@ -45,3 +46,4 @@ LLM 연동한 내외부 문서 기반 질의 응답 시스템
 - `llm-api/` — OpenAI API, 프롬프트 엔지니어링
 - `langchain/` — Chain과 LCEL, 대화형 챗봇, 외부 검색 도구, ReAct 에이전트
 - `rag/` — 문서 로드와 분할, 임베딩, 벡터 저장소(FAISS, Chroma), 희소 검색(BM25), 하이브리드 검색
+- `langgraph/` — 상태(State), 노드와 엣지, 조건부 분기, 에이전트 챗봇
