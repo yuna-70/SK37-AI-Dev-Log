@@ -8,3 +8,6 @@ ns_202104.csv
 # 벡터 저장소 (실행하면 다시 생성됨)
 chroma_db/
 chroma_db_*/
+
+# LangGraph 체크포인트 DB (실행하면 다시 생성됨)
+*.sqlite
