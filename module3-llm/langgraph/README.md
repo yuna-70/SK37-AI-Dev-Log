@@ -453,3 +453,68 @@
   - 의도한 에러에 도달하기도 전에 다른 곳에서 터진 셈임. 비구조화된 출력이 위험하다는 교훈 자체는 오히려 더 선명해졌음
 
 ---
+
+## 📅 2026-11-27 | PydanticAI로 LLM 출력 구조화하기
+
+> 코드: [`structured_output_pydantic_ai.py`](./structured_output_pydantic_ai.py)
+
+### 개념
+
+**1. 왜 구조화된 출력이 필요한가**
+
+- LLM이 돌려주는 건 결국 **텍스트**임. 다음 노드가 그 텍스트를 잘라내고 파싱해서 값을 꺼내야 함
+- 형식이 조금만 어긋나면 파싱이 깨지고, 깨진 값이 그대로 다음 단계로 흘러가 파이프라인 전체가 멈춤
+- 실패 시나리오는 그걸 보여주는 예시였음. 안내문 + 코드블록 + 안내문이 섞인 응답에서 JSON만 잘라내려다 멈췄음
+- 사람이 읽기엔 멀쩡한 답변인데 **프로그램이 받기엔 쓸 수 없는 형태**라는 게 핵심임
+
+**2. PydanticAI의 `Agent`**
+
+- `Agent(model="openai:gpt-5-nano", output_type=InventoryAnalysis, system_prompt=...)` 형태로 만듦
+- `ChatOpenAI(model="gpt-5-nano")` 자리를 대신하는데, **출력 형식까지 함께 관리**한다는 점이 다름
+- `output_type`에 Pydantic 모델을 지정하면 LLM이 그 형식을 지키도록 강제하고, 어기면 다시 시도하게 함
+- 결과는 `AgentRunResult` 객체로 나오고, `.output`으로 꺼내면 지정한 클래스의 객체가 들어 있음
+- `model_dump()`로 딕셔너리로 바꿔 상태에 넣음
+
+**3. `description`과 타입의 역할이 다름**
+
+- `Field(description="...")`는 **LLM에게 주는 안내문**임. "이 칸에 뭘 넣어야 하는지" 설명해주는 것
+- 실제로 검사하는 것은 **타입**임. `current_stock: int`로 선언해야 정수가 보장됨
+- `description`에 "숫자만 허용"이라고 써도 타입이 `str`이면 문자열이 들어오고, 뒤에서 `100 - "15"`로 터짐
+- 11월 20일에 배운 `BaseModel`의 유효성 검사를, 이번엔 **상태가 아니라 LLM 출력**에 적용한 것임
+
+**4. `async` 함수와 `await`의 평가 순서**
+
+- `async def`로 만든 함수는 **호출만 하면 코루틴 객체**를 돌려줌. `await`를 붙여야 실행되고 진짜 결과가 나옴
+- `await x.y`는 `await (x.y)`로 해석됨. `.`이 `await`보다 먼저 평가됨
+- 그래서 `await agent.run(...).output`은 아직 실행되지 않은 코루틴에서 `.output`을 꺼내려다 멈춤
+- `agent_result = await agent.run(...)`로 먼저 받고, 그다음 줄에서 `.output`을 꺼내야 함
+
+### 왜 이렇게 코딩했는가
+
+- 실패 시나리오에서 LLM을 실제로 부르지 않고 "형식을 안 지킨 응답"을 문자열로 직접 써둔 이유는, LLM 응답이 매번 달라지면 **실패를 재현할 수 없기** 때문임. 보여주려는 건 응답 내용이 아니라 깨지는 구조임
+- `safe_process_node`에 `try/except`가 없는 이유는 파싱할 것 자체가 없기 때문임. 앞 노드가 이미 `int`임을 보장해줘서 실패할 자리가 사라졌음
+- 두 시나리오를 같은 `AgentState`로 돌린 이유는 비교를 깔끔하게 하기 위함임. 상태 구조는 같고 노드 안쪽만 바뀌었다는 게 드러남
+
+### 막혔던 부분 · 이해 포인트
+
+- **`'coroutine' object has no attribute 'output'`으로 멈췄음**
+  - `agent_result = await pydantic_agent.run(user_prompt=user_prompt).output` 이 줄에서 났음
+  - 처음엔 `run()`이 실패한 줄 알았는데, 에러 메시지의 `coroutine`이 단서였음. 아직 **실행되지 않은 상태**의 객체라는 뜻임
+  - `await`보다 `.output`이 먼저 평가되는 게 원인이었음. `.output`만 지우면 됐고, 바로 다음 줄에 이미 `agent_result.output`이 있어서 두 번 꺼내려던 셈이었음
+  - 비동기에서 `await`를 어디에 붙이는지가 중요하다는 걸 처음 체감했음
+- **`description`을 믿고 타입을 `str`로 두면 안 됐음**
+  - 처음에는 `current_stock: str`에 `description="숫자만 허용"`으로 되어 있었음
+  - 설명은 LLM에게 주는 말일 뿐이고, PydanticAI가 강제하는 건 **타입**임. `str`로 두면 "15"라는 문자열이 와서 `100 - "15"`에서 또 터졌을 것임
+  - `int`로 바꾸니 결과가 `current_stock=15`로 **따옴표 없이** 나왔고, 연산이 바로 통했음
+  - 1부에서 보여주려던 그 실패를, 2부에서도 타입을 잘못 쓰면 똑같이 겪게 된다는 게 재미있었음
+- **파싱 코드가 통째로 사라졌음**
+  - 실패 쪽은 `split("'''json")[1].split("'''")[0].strip()`에 `replace`, `json.loads`까지 네 단계를 거쳤음
+  - 성공 쪽은 `agent_result.output.model_dump()` 한 줄이었고, `try/except`도 필요 없었음
+  - 출력 형식을 **입구에서** 강제하면 출구에서 할 일이 없어진다는 게 코드 길이로 보였음
+- **모델 서비스 종료 경고가 떴음**
+  - `DeprecatedModelWarning: Model 'openai:gpt-5-nano' is deprecated ... retirement date of 2026-12-11`
+  - 지금까지 만든 파일 대부분이 `gpt-5-nano`를 쓰고 있어서, 12월 11일 이후에는 전부 멈춤
+  - 이번 주에 본 세 번째 경고임. 11월 24일 `Model` 대문자, 11월 20일 `max_result`에 이어서임
+  - 경고는 "지금은 되지만 곧 안 된다"는 예고라는 게 확실해졌음. 12월 초에 저장소 전체 모델명을 한 번에 바꾸기로 함
+
+---
